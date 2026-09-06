@@ -27,13 +27,13 @@
   <groupId>io.vaullet</groupId>
   <artifactId>common-parent</artifactId>
   <!--
-    CI-friendly version. ${revision} is one of the three properties Maven resolves inside a
+    CI-friendly version. 0.1.0-SNAPSHOT is one of the three properties Maven resolves inside a
     <version> element, so the number lives in exactly one place and a release is
     `-Drevision=1.2.3` rather than a commit that rewrites six POMs. flatten-maven-plugin below
     substitutes the literal into the POM that gets installed and deployed, so a consumer never
     sees an unresolved property.
   -->
-  <version>${revision}</version>
+  <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Vaullet Backend Common</name>
@@ -126,9 +126,9 @@
   <build>
     <plugins>
       <!--
-        Resolves ${revision} in the POM that is installed and deployed. Without it a consumer
+        Resolves 0.1.0-SNAPSHOT in the POM that is installed and deployed. Without it a consumer
         resolving common-core would get a POM whose <version> is the literal string
-        "${revision}", which Maven cannot use.
+        "0.1.0-SNAPSHOT", which Maven cannot use.
 
         Mode `resolveCiFriendliesOnly` is the conservative one: it substitutes revision/sha1/
         changelist and changes nothing else. The other modes rewrite the POM into an "effective"

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.vaullet</groupId>
+    <artifactId>common-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>common-web</artifactId>
+  <name>Vaullet Backend Common :: Web</name>
+  <description>RFC 9457 problem+json, CORS, OpenAPI and the shared application.yaml defaults</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.vaullet</groupId>
+      <artifactId>common-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!--
+      For org.springframework.dao only — the DataAccessException hierarchy that lock contention
+      arrives as. It looks out of place in a web module and is not: translating a contended row
+      into 503 + Retry-After rather than 500 is a decision about the HTTP contract, and the
+      alternative is every service writing that @ExceptionHandler itself. spring-tx is already on
+      the classpath of anything with a datasource, which per ADR-003 is every Vaullet service.
+    -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-tx</artifactId>
+    </dependency>
+
+    <!--
+      Not optional. Every error body carries trace_id (ADR-011, §7 — ADR-007's correlation_id),
+      which is the field that turns a screenshot of an error into a query against the logs. The
+      API artifact only: a service still chooses its own bridge (brave, OTel) and exporter.
+    -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing</artifactId>
+    </dependency>
+
+    <!--
+      Optional, and therefore NOT transitive: a service that wants a published OpenAPI document
+      declares springdoc itself, and OpenApiAutoConfiguration switches on via @ConditionalOnClass.
+      A back-office service with no external contract pays nothing for this module's support of one.
+    -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

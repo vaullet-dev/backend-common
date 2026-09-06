@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.vaullet</groupId>
+    <artifactId>common-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>common-core</artifactId>
+  <name>Vaullet Backend Common :: Core</name>
+  <description>Error vocabulary a service layer can throw without knowing about HTTP</description>
+
+  <!--
+    The dependency list is the point of this module. A Kafka listener, a scheduled sweeper and a
+    controller all need to raise the same failures, so what they share must not drag in the web
+    stack. spring-web is here for one type — HttpStatus — and nothing in this module touches a
+    servlet, a ProblemDetail or a Spring context.
+  -->
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

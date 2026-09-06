@@ -10,7 +10,7 @@ Four artifacts, split by **what they drag onto a classpath**. Take the ones you 
   <dependencies>
     <dependency>
       <groupId>io.vaullet</groupId>
-      <artifactId>backend-common-bom</artifactId>
+      <artifactId>common-bom</artifactId>
       <version>0.1.0-SNAPSHOT</version>
       <type>pom</type>
       <scope>import</scope>
@@ -21,15 +21,15 @@ Four artifacts, split by **what they drag onto a classpath**. Take the ones you 
 <dependencies>
   <dependency>
     <groupId>io.vaullet</groupId>
-    <artifactId>backend-common-web</artifactId>
+    <artifactId>common-web</artifactId>
   </dependency>
   <dependency>
     <groupId>io.vaullet</groupId>
-    <artifactId>backend-common-security</artifactId>
+    <artifactId>common-security</artifactId>
   </dependency>
   <dependency>
     <groupId>io.vaullet</groupId>
-    <artifactId>backend-common-test</artifactId>
+    <artifactId>common-test</artifactId>
     <scope>test</scope>
   </dependency>
 </dependencies>
@@ -91,7 +91,7 @@ here on a different axis: contracts couple by domain, plumbing couples by depend
 | Breaking change means | Producers and consumers must coordinate | A compile error in one service |
 
 They touch in exactly one place, and cleanly: `contracts-common`'s `Problem` is what a **client**
-deserialises; `backend-common-web` produces that body **server-side**. Neither generates the other.
+deserialises; `common-web` produces that body **server-side**. Neither generates the other.
 
 ---
 

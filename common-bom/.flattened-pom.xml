@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    The bill of materials consumers import.
+
+    Deliberately standalone — no <parent>. A BOM that inherits from something drags that
+    something's dependencyManagement into every consumer, which is how importing one small BOM
+    silently pins a service's entire Spring version. This file manages exactly four artifacts
+    and nothing else.
+
+    Usage in a service POM:
+
+      <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>io.vaullet</groupId>
+            <artifactId>common-bom</artifactId>
+            <version>0.1.0</version>
+            <type>pom</type>
+            <scope>import</scope>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
+
+    after which the modules are declared without a version, and one line upgrades all of them
+    together. Mixed versions of these four modules are not a supported combination: they share
+    the ErrorType interface and the property prefix, so they move as a set.
+  -->
+  <groupId>io.vaullet</groupId>
+  <artifactId>common-bom</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <!--
+      Repeated rather than inherited, because this POM deliberately has no parent (above). Keep
+      it identical to common-parent's; the `versions` job in ci.yml fails the build if it drifts,
+      and a release passes -Drevision to both at once so only the committed default can differ.
+    -->
+    <revision>0.1.0-SNAPSHOT</revision>
+  </properties>
+
+  <name>Vaullet Backend Common BOM</name>
+  <description>Dependency management for the Vaullet common modules</description>
+
+  <!--
+    GHCR Maven, matching ADR-002's contract pipeline. Credentials come from the
+    `github` server in the CI-generated settings.xml, never from this file.
+  -->
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
+    </repository>
+    <snapshotRepository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <!--
+    Declared here, with an explicit version, because this POM has no parent to inherit plugin
+    management from. Without it the deployed BOM would carry a literal <version>0.1.0-SNAPSHOT</version>
+    and a consumer's import would fail on a property they cannot see.
+  -->
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.7.3</version>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten-clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>common-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>common-web</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>common-security</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>common-test</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

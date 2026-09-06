@@ -1,0 +1,54 @@
+# Publishes the four artifacts and the BOM to GHCR Maven, on a tag.
+#
+# Tag-driven rather than merge-driven, matching ADR-002's contract pipeline: a version
+# that appears in a service's POM should correspond to a commit someone deliberately
+# named, not to whatever was on main that afternoon.
+#
+# All five modules publish together at one version. They share the ErrorType interface
+# and the `vaullet.*` property prefix, so a mixed combination is not supported — see
+# ADR-013 §6.
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  # Required to push Maven artifacts to GitHub Packages.
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+          # Writes a settings.xml whose `github` server takes the token below, so the
+          # distributionManagement block needs no credentials of its own.
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      # The tag is the version. Setting it from the tag rather than trusting the POM
+      # means a forgotten version bump fails here instead of silently republishing.
+      - name: Set the version from the tag
+        run: ./mvnw -B --no-transfer-progress versions:set -DnewVersion="${GITHUB_REF_NAME#v}" -DprocessAllModules -DgenerateBackupPoms=false
+
+      - name: Verify before publishing
+        run: ./mvnw -B --no-transfer-progress verify
+
+      - name: Publish to GHCR Maven
+        run: ./mvnw -B --no-transfer-progress deploy -DskipTests
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

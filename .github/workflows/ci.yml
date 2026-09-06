@@ -1,0 +1,53 @@
+# Continuous integration.
+#
+# One job, not three. Splitting build / test / verify across jobs looks tidy and then
+# spends more wall-clock time re-downloading dependencies and re-compiling than the
+# tests themselves take. Split when a stage is genuinely slow enough to parallelise.
+#
+# No Docker here, unlike a service's CI: this repository has no integration tests of its
+# own. The Testcontainers wiring it ships is exercised by the services that consume it,
+# which is the only place it can be exercised meaningfully.
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# A new push to the same branch cancels the run already in flight — the result of the
+# older commit is not information anyone will act on.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          # Caches ~/.m2 keyed on the POMs. Without it, every run re-downloads the
+          # dependency tree, which for the Spring Boot BOM is minutes per run.
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B --no-transfer-progress verify
+
+      - name: Publish test report
+        # Runs even when the build failed — a red run with no visible reason is worse
+        # than a red run.
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: '**/target/*-reports/TEST-*.xml'
+          require_tests: false

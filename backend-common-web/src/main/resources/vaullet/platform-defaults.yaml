@@ -1,0 +1,95 @@
+# ---------------------------------------------------------------------------
+# Platform defaults for every @vaullet-io backend service.
+#
+# Imported explicitly, never applied behind a service's back:
+#
+#   spring:
+#     config:
+#       import: "classpath:vaullet/platform-defaults.yaml"
+#
+# Spring Boot ranks an imported document BELOW the document that imports it, so a
+# service that sets any of these keys in its own application.yaml still wins. Read
+# this file as "what you get if you say nothing".
+#
+# The test for belonging here is the same one used for the code: would a service
+# that knows nothing about money still want it? Datasource, Flyway, the OAuth2
+# issuer and logging levels are all service-owned and deliberately absent.
+# ---------------------------------------------------------------------------
+spring:
+  main:
+    banner-mode: off
+
+  threads:
+    # Virtual threads (Java 21+). Each request gets its own carrier-free thread, so a
+    # blocking JDBC call no longer occupies a platform thread. This is what makes plain
+    # blocking Spring MVC scale like a reactive stack for I/O-bound work, without the
+    # debugging cost of WebFlux. Watch for `synchronized` blocks around blocking calls
+    # in older libraries — they pin the carrier thread.
+    virtual:
+      enabled: true
+
+  jackson:
+    # ADR-011, §8 fixes the external wire format as snake_case. Setting it once, here,
+    # beats @JsonProperty on every component and makes it impossible for one endpoint in
+    # one service to drift into camelCase.
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+
+  mvc:
+    # RFC 9457 problem+json for framework-raised errors too, so a malformed body and a
+    # 404 from Spring itself look like the errors ApiExceptionHandler produces.
+    problemdetails:
+      enabled: true
+
+server:
+  # Behind a load balancer or ingress, trust X-Forwarded-* so generated URLs and logged
+  # client IPs are the real ones.
+  forward-headers-strategy: framework
+  shutdown: graceful
+  error:
+    # Never echo stack traces or messages from the default error page. On a service with
+    # a hand-written DAO those messages are SQL.
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Explicit list, not `*`. Every exposed endpoint is attack surface; `env` and
+        # `configprops` in particular can disclose configuration.
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      # Details only for an authenticated operator; an anonymous probe sees UP/DOWN.
+      show-details: when-authorized
+      roles: OPERATOR
+      # Kubernetes-style /actuator/health/liveness and /readiness.
+      probes:
+        enabled: true
+  health:
+    # Do not report the service healthy while it is draining.
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  tracing:
+    sampling:
+      # 10% is a reasonable cost/visibility trade in a deployed environment; the local
+      # and test profiles of a service override it to 1.0.
+      probability: ${TRACING_SAMPLE_RATE:0.1}
+
+logging:
+  # Trace and span ids in every line, so a log search and a trace view agree. It is the
+  # same id ADR-011 returns as `trace_id` in every error body.
+  pattern:
+    correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-}] "
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha

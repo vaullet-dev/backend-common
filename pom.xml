@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Aggregator and build parent for the @vaullet-io backend libraries.
+
+    This inherits from spring-boot-starter-parent for its dependency management and plugin
+    configuration ONLY. Nothing here is a Spring Boot application: no module is repackaged into
+    a fat jar, and spring-boot-maven-plugin is deliberately never declared. A library that ships
+    as a Boot uber-jar cannot be depended on, which is the single most common way a "common"
+    module becomes unusable.
+
+    Consumers do NOT inherit from this POM. They inherit from spring-boot-starter-parent as
+    usual and import backend-common-bom, so a service can be on a different Boot patch version
+    than the one this library was built against.
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.1</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>io.vaullet</groupId>
+  <artifactId>backend-common-parent</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>Vaullet Backend Common</name>
+  <description>Cross-cutting plumbing shared by @vaullet-io backend services</description>
+  <url>https://github.com/vaullet-io/backend-common</url>
+
+  <modules>
+    <module>backend-common-bom</module>
+    <module>backend-common-core</module>
+    <module>backend-common-web</module>
+    <module>backend-common-security</module>
+    <module>backend-common-test</module>
+  </modules>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- Versions not managed by the Spring Boot BOM -->
+    <springdoc.version>3.1.0</springdoc.version>
+    <archunit.version>1.4.1</archunit.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Sibling modules, so a module POM never repeats ${project.version} -->
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>backend-common-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>backend-common-web</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>backend-common-security</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vaullet</groupId>
+        <artifactId>backend-common-test</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit-junit5</artifactId>
+        <version>${archunit.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!--
+    GHCR Maven, matching ADR-002's contract pipeline. Credentials come from the
+    `github` server in the CI-generated settings.xml, never from this file.
+  -->
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
+    </repository>
+    <snapshotRepository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!-- Keeps parameter names for Spring binding and @ConfigurationProperties -->
+          <parameters>true</parameters>
+          <compilerArgs>
+            <arg>-Xlint:all,-processing</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-configuration-processor</artifactId>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <!--
+        A library is consumed by reading it. The rationale comments in these classes are the
+        documentation (see the README), so the sources jar is not a nicety here: it is what makes
+        "why does this exist" answerable from the IDE of a service that only has the binary.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

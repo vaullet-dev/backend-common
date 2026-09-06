@@ -31,6 +31,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # common-bom has no parent, so it repeats the <revision> default rather than inheriting
+      # it. That is the one place the version can drift, and a drifted BOM publishes a
+      # dependencyManagement block pointing at versions that do not exist.
+      - name: The BOM's version default matches the parent's
+        run: |
+          PARENT=$(sed -n 's|.*<revision>\(.*\)</revision>.*|\1|p' pom.xml | head -1)
+          BOM=$(sed -n 's|.*<revision>\(.*\)</revision>.*|\1|p' common-bom/pom.xml | head -1)
+          echo "parent=$PARENT bom=$BOM"
+          if [ "$PARENT" != "$BOM" ]; then
+            echo "::error::common-bom <revision> ($BOM) differs from common-parent ($PARENT)."
+            exit 1
+          fi
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -51,3 +64,34 @@ jobs:
         with:
           report_paths: '**/target/*-reports/TEST-*.xml'
           require_tests: false
+
+  # Publishes 0.x.y-SNAPSHOT from main, so a consuming service can build against unreleased
+  # work without every developer running `mvn install` locally first. Only from main, and never
+  # from a pull request: a snapshot that anyone can push is not a baseline anyone can trust.
+  snapshot:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Deploy snapshot
+        run: ./mvnw -B --no-transfer-progress deploy -DskipTests
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

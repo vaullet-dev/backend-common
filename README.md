@@ -318,9 +318,75 @@ Three questions, in order:
 
 ### Versioning
 
-Semantic, one version across all four modules — they share the `ErrorType` interface and the
-`vaullet.*` prefix, so a mixed combination is not supported. Nothing here is on the wire, so an
-upgrade is never forced: services on different versions interoperate exactly as before.
+[Semantic](https://semver.org), one version across all four modules and the BOM — they share the
+`ErrorType` interface and the `vaullet.*` prefix, so a mixed combination is not supported. Nothing
+here is on the wire, so an upgrade is never *forced*: services on different versions interoperate
+exactly as before. That is what makes a version stream tolerable across fourteen services, and it is
+the difference between this library and a contract artifact (ADR-002).
+
+**The version lives in one place** — `<revision>` in the parent POM — and is never committed as part
+of a release. `${revision}` is one of the three properties Maven resolves inside a `<version>`
+element, and `flatten-maven-plugin` substitutes the literal into every published POM. So a release
+is a tag, and `-Drevision=1.2.3` does the rest: no six-POM rewrite commit, nothing to forget, nothing
+to conflict on.
+
+#### What the digits mean here
+
+The surface this library promises is wider than its Java signatures, and that is the part worth
+reading twice. A consumer is coupled to all of it:
+
+| Change | Bump |
+| --- | --- |
+| Remove or rename a public type, method or constant | **MAJOR** |
+| Add a method to an interface consumers implement (`ErrorType`) | **MAJOR** — it breaks every implementor |
+| Change a `CommonErrorType` **code string** | **MAJOR** — those reach an integrator's `switch`, so it is also an ADR-011 §4 break for every consuming service at once |
+| Rename or remove a `vaullet.*` property | **MAJOR** unless the old name is kept as an alias |
+| Change what an auto-configured bean *does* in a way a consumer cannot override | **MAJOR** |
+| Change a value in `platform-defaults.yaml` that alters behaviour | **MAJOR** — a service that imported it and said nothing gets the new behaviour silently |
+| New public API, new module, new property with a default | **MINOR** |
+| New auto-configured bean that backs off on `@ConditionalOnMissingBean` | **MINOR** |
+| Bug fix, Javadoc, dependency patch bump | **PATCH** |
+
+The rows that catch people are the ones that are not Java at all. An error `code` is a string an
+operator's integration branches on; a `platform-defaults.yaml` value is behaviour a service opted
+into by writing one import line and has no local record of.
+
+#### It is enforced, not promised
+
+`japicmp` compares every module against its last release on each `verify`, and **fails the build when
+the version number does not match the size of the change**:
+
+```
+[ERROR] Failed to execute goal ...japicmp...: Versions of archives indicate a patch change
+        but binary incompatible changes found.
+```
+
+Same shape as the rest of the platform: `oasdiff` gates the OpenAPI document (ADR-011 §5),
+`FULL_TRANSITIVE` gates event schemas (ADR-007). A library's Java API has the same property — the
+people it breaks are not in the room when it is broken.
+
+The gate is on for `0.x` too, via
+`breakBuildBasedOnSemanticVersioningForMajorVersionZero`. Semver permits `0.x` to break anything,
+which is exactly how a young library teaches its consumers to expect churn. Cheaper to start now,
+with one consumer, than to retrofit at `1.0` with fourteen.
+
+It cannot see the non-Java rows of the table above. Those are a review question, and the reason the
+table is written down.
+
+#### Cutting a release
+
+```bash
+./mvnw verify                      # the gate runs here; fix the number or fix the change
+# move CHANGELOG.md's Unreleased heading to the new version
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The tag is the version. `publish.yml` rejects anything that is not `vMAJOR.MINOR.PATCH`, re-runs the
+gate against the real number, deploys to GHCR Maven, and keeps the API diff as a build artefact —
+the evidence behind the digit.
+
+Between releases, `main` publishes `-SNAPSHOT` to GHCR, so a consuming service can build against
+unreleased work without every developer running `mvn install` first.
 
 ---
 

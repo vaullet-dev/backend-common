@@ -32,7 +32,7 @@
   -->
   <groupId>io.vaullet</groupId>
   <artifactId>common-bom</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
   <packaging>pom</packaging>
 
   <properties>
@@ -41,7 +41,7 @@
       it identical to common-parent's; the `versions` job in ci.yml fails the build if it drifts,
       and a release passes -Drevision to both at once so only the committed default can differ.
     -->
-    <revision>0.1.0-SNAPSHOT</revision>
+    <revision>0.0.0-DEV</revision>
   </properties>
 
   <name>Vaullet Backend Common BOM</name>
@@ -57,16 +57,15 @@
       <name>GitHub Packages</name>
       <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
     </repository>
-    <snapshotRepository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
-    </snapshotRepository>
+    <!--
+      No <snapshotRepository>: see common-parent. A `deploy` of a -SNAPSHOT fails here rather
+      than publishing a coordinate that can be overwritten.
+    -->
   </distributionManagement>
 
   <!--
     Declared here, with an explicit version, because this POM has no parent to inherit plugin
-    management from. Without it the deployed BOM would carry a literal <version>0.1.0-SNAPSHOT</version>
+    management from. Without it the deployed BOM would carry a literal <version>0.1.0</version>
     and a consumer's import would fail on a property they cannot see.
   -->
   <build>

@@ -32,6 +32,12 @@
     `-Drevision=1.2.3` rather than a commit that rewrites six POMs. flatten-maven-plugin below
     substitutes the literal into the POM that gets installed and deployed, so a consumer never
     sees an unresolved property.
+
+    Nothing computes that number by hand. scripts/version.sh reads it off the commit log:
+
+        ./mvnw -Drevision="$(scripts/version.sh)" verify
+
+    See the header of that script for the three commit types and what each one moves.
   -->
   <version>${revision}</version>
   <packaging>pom</packaging>
@@ -50,14 +56,21 @@
 
   <properties>
     <!--
-      THE version of this library. See CHANGELOG.md for what has changed at each one, and the
-      "Versioning" section of the README for what a MAJOR, MINOR or PATCH bump means here —
-      which is not quite what it means for a wire contract.
+      Fallback only, and deliberately not a version anybody could mistake for a release.
+      Every real build passes -Drevision from scripts/version.sh; this value exists so that
+      `mvn` and an IDE import still resolve when nobody did.
+
+      It is NOT -SNAPSHOT. A snapshot is a mutable coordinate — two builds of "0.1.0-SNAPSHOT"
+      can contain different code — and this project has none of them: main publishes releases,
+      a branch publishes an immutable pre-release like 0.2.0-holds-7. Nothing here is ever
+      overwritten, so "which build is that" always has an answer. See CHANGELOG.md for what
+      changed at each version and the README's "Versioning" section for what MAJOR, MINOR and
+      PATCH mean for *this* library, which is not quite what they mean for a wire contract.
 
       common-bom repeats this default because it has no parent to inherit it from (deliberately:
       see its own comment). CI asserts the two agree.
     -->
-    <revision>0.1.0-SNAPSHOT</revision>
+    <revision>0.0.0-DEV</revision>
 
     <java.version>21</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -116,11 +129,12 @@
       <name>GitHub Packages</name>
       <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
     </repository>
-    <snapshotRepository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
-    </snapshotRepository>
+    <!--
+      No <snapshotRepository>, on purpose. Without one, a `deploy` of anything ending in
+      -SNAPSHOT fails with "repository element was not specified" rather than quietly
+      publishing a mutable coordinate that a consumer can never pin. The absence is the
+      enforcement.
+    -->
   </distributionManagement>
 
   <build>

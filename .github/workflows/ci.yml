@@ -1,12 +1,16 @@
-# Continuous integration.
+# Continuous integration, and the release.
 #
-# One job, not three. Splitting build / test / verify across jobs looks tidy and then
-# spends more wall-clock time re-downloading dependencies and re-compiling than the
-# tests themselves take. Split when a stage is genuinely slow enough to parallelise.
+# One workflow, because the release is not a separate event: every commit that reaches main
+# IS a release, at a level the commit messages already declared. Splitting that across two
+# workflows would mean a green build and an unreleased main can coexist, which is the state
+# nobody ever notices until they need it not to be true.
 #
-# No Docker here, unlike a service's CI: this repository has no integration tests of its
-# own. The Testcontainers wiring it ships is exercised by the services that consume it,
-# which is the only place it can be exercised meaningfully.
+# One build job, not three. Splitting build / test / verify looks tidy and then spends more
+# wall-clock time re-downloading dependencies than the tests take.
+#
+# No Docker here, unlike a service's CI: this repository has no integration tests of its own.
+# The Testcontainers wiring it ships is exercised by the services that consume it, which is
+# the only place it can be exercised meaningfully.
 name: CI
 
 on:
@@ -14,22 +18,51 @@ on:
     branches: [master, main]
   pull_request:
 
-# A new push to the same branch cancels the run already in flight — the result of the
-# older commit is not information anyone will act on.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A superseded branch build is not information anyone will act on, so cancel it. A release
+  # in flight is a different matter: cancelling between `deploy` and `git push --tags` leaves
+  # a published version with no tag, and the next run would then compute the same number again.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' }}
 
 permissions:
   contents: read
 
 jobs:
+  # The version comes from the commit log, so an unreadable message is a build error, not a
+  # style nit: it contributes nothing to the level, and "nothing" is indistinguishable from
+  # a deliberate chore. Catching it on the pull request is the only point at which it is
+  # still cheap to fix.
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Every commit declares its release level
+        run: scripts/version.sh lint "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
+      # On a squash merge the pull request title becomes the only commit on main, so it is
+      # the title that has to parse. Checked separately because the branch commits above may
+      # all be perfect and the title still be "address review comments".
+      - name: The pull request title declares its release level
+        run: scripts/version.sh lint-subject "$PR_TITLE"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # version.sh reads the tags and the whole log since the last one. A shallow clone
+          # makes it compute a version from a history that isn't there.
+          fetch-depth: 0
 
       # common-bom has no parent, so it repeats the <revision> default rather than inheriting
       # it. That is the one place the version can drift, and a drifted BOM publishes a
@@ -44,6 +77,16 @@ jobs:
             exit 1
           fi
 
+      # A committed -SNAPSHOT would be a mutable coordinate, and this project has none: main
+      # publishes releases and a branch publishes an immutable pre-release. Cheaper to assert
+      # than to explain later why two builds of the same version differ.
+      - name: No committed SNAPSHOT version
+        run: |
+          if grep -rn "<revision>.*SNAPSHOT" --include=pom.xml .; then
+            echo "::error::A <revision> default is a SNAPSHOT. main does not carry snapshots."
+            exit 1
+          fi
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -53,8 +96,25 @@ jobs:
           # dependency tree, which for the Spring Boot BOM is minutes per run.
           cache: maven
 
+      # A pull request builds as the pre-release it would become — 0.2.0-holds-7, not a
+      # placeholder — so the version machinery is exercised by every run rather than only by
+      # the release that depends on it.
+      - name: Work out this build's version
+        id: version
+        run: |
+          VERSION="$(scripts/version.sh)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          scripts/version.sh explain | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+
       - name: Build and test
-        run: ./mvnw -B --no-transfer-progress verify
+        run: ./mvnw -B --no-transfer-progress -Drevision="$VERSION" verify
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          # japicmp resolves the previous release from GHCR, which requires auth to read.
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish test report
         # Runs even when the build failed — a red run with no visible reason is worse
@@ -65,33 +125,109 @@ jobs:
           report_paths: '**/target/*-reports/TEST-*.xml'
           require_tests: false
 
-  # Publishes 0.x.y-SNAPSHOT from main, so a consuming service can build against unreleased
-  # work without every developer running `mvn install` locally first. Only from main, and never
-  # from a pull request: a snapshot that anyone can push is not a baseline anyone can trust.
-  snapshot:
+  # Main is released, not merged-and-forgotten. The number is whatever the commit messages
+  # since the last tag add up to; the tag is written afterwards, so the tag is a record of a
+  # release that happened rather than a trigger for one that might.
+  release:
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
-      contents: read
+      # Pushing the tag and creating the GitHub release.
+      contents: write
+      # Publishing to GHCR Maven.
       packages: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the version from the commit log
+        id: version
+        run: |
+          BUMP="$(scripts/version.sh bump)"
+          scripts/version.sh explain | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$BUMP" = "none" ]; then
+            echo "Only chore/docs/test/ci/style commits since the last release. Nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VERSION="$(scripts/version.sh)"
+          TAG="$(scripts/version.sh tag)"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG already exists. Two releases computed the same number."
+            exit 1
+          fi
+          {
+            echo "publish=true"
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "bump=$BUMP"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK
+        if: steps.version.outputs.publish == 'true'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: temurin
           cache: maven
+          # Writes a settings.xml whose `github` server takes the token below, so the
+          # distributionManagement block needs no credentials of its own.
           server-id: github
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
-      - name: Deploy snapshot
-        run: ./mvnw -B --no-transfer-progress deploy -DskipTests
+      # The gate. japicmp compares every module against its last release and fails when the
+      # number does not match the change — a removal that the commit called `fix:` stops here
+      # rather than reaching a consumer who trusted the patch digit. The commit message
+      # proposes a level; this is what checks the code agrees.
+      - name: Verify at the computed version, including the semver gate
+        if: steps.version.outputs.publish == 'true'
+        run: ./mvnw -B --no-transfer-progress -Drevision="$VERSION" verify
         env:
+          VERSION: ${{ steps.version.outputs.version }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GHCR Maven
+        if: steps.version.outputs.publish == 'true'
+        run: ./mvnw -B --no-transfer-progress -Drevision="$VERSION" deploy -DskipTests
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag last. A tag written before the deploy would name a version that may not exist,
+      # and the next run would then compute the version after it and skip the gap silently.
+      - name: Tag the release
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG ($BUMP)"
+          git push origin "$TAG"
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          BUMP: ${{ steps.version.outputs.bump }}
+
+      - name: Create the GitHub release
+        if: steps.version.outputs.publish == 'true'
+        run: gh release create "$TAG" --title "$TAG" --generate-notes
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload the API diff
+        # The japicmp report says exactly what changed in the public API at this version. It is
+        # the evidence behind the number, and worth keeping next to the release rather than
+        # regenerating it later from two jars.
+        if: always() && steps.version.outputs.publish == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-compatibility-${{ steps.version.outputs.tag }}
+          path: '**/target/japicmp/*'
+          if-no-files-found: ignore
+          retention-days: 90

@@ -41,7 +41,7 @@
       it identical to common-parent's; the `versions` job in ci.yml fails the build if it drifts,
       and a release passes -Drevision to both at once so only the committed default can differ.
     -->
-    <revision>0.1.0-SNAPSHOT</revision>
+    <revision>0.0.0-DEV</revision>
   </properties>
 
   <name>Vaullet Backend Common BOM</name>
@@ -57,11 +57,10 @@
       <name>GitHub Packages</name>
       <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
     </repository>
-    <snapshotRepository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
-    </snapshotRepository>
+    <!--
+      No <snapshotRepository>: see common-parent. A `deploy` of a -SNAPSHOT fails here rather
+      than publishing a coordinate that can be overwritten.
+    -->
   </distributionManagement>
 
   <!--

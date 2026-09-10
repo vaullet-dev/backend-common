@@ -17,7 +17,7 @@
       <dependencyManagement>
         <dependencies>
           <dependency>
-            <groupId>io.vaullet</groupId>
+            <groupId>dev.vaullet</groupId>
             <artifactId>common-bom</artifactId>
             <version>0.1.0</version>
             <type>pom</type>
@@ -30,7 +30,7 @@
     together. Mixed versions of these four modules are not a supported combination: they share
     the ErrorType interface and the property prefix, so they move as a set.
   -->
-  <groupId>io.vaullet</groupId>
+  <groupId>dev.vaullet</groupId>
   <artifactId>common-bom</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
@@ -55,7 +55,7 @@
     <repository>
       <id>github</id>
       <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
+      <url>https://maven.pkg.github.com/vaullet-dev/backend-common</url>
     </repository>
     <!--
       No <snapshotRepository>: see common-parent. A `deploy` of a -SNAPSHOT fails here rather
@@ -101,22 +101,22 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-web</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-security</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-test</artifactId>
         <version>${project.version}</version>
       </dependency>

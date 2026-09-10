@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Platform defaults for every @vaullet-io backend service.
+# Platform defaults for every @vaullet-dev backend service.
 #
 # Imported explicitly, never applied behind a service's back:
 #

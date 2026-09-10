@@ -5,9 +5,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>io.vaullet</groupId>
+    <groupId>dev.vaullet</groupId>
     <artifactId>common-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.0.0-DEV</version>
   </parent>
 
   <artifactId>common-test</artifactId>

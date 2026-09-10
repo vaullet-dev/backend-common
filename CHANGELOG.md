@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@vaullet-io/backend-common` are recorded here, following
+All notable changes to `@vaullet-dev/backend-common` are recorded here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow
 [Semantic Versioning](https://semver.org) — see [Versioning](README.md#versioning) for what MAJOR,
 MINOR and PATCH mean for *this* library, which is not quite what they mean for a wire contract.
@@ -44,4 +44,4 @@ Entries are written under **Unreleased** as the change lands, and the heading is
 - Configuration moves to the `vaullet.*` prefix (`vaullet.api`, `vaullet.security`,
   `vaullet.openapi`), leaving `app.*` free for what a service genuinely owns.
 
-[Unreleased]: https://github.com/vaullet-io/backend-common/commits/main
+[Unreleased]: https://github.com/vaullet-dev/backend-common/commits/main

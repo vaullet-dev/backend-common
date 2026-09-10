@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <!--
-    Aggregator and build parent for the @vaullet-io backend libraries.
+    Aggregator and build parent for the @vaullet-dev backend libraries.
 
     This inherits from spring-boot-starter-parent for its dependency management and plugin
     configuration ONLY. Nothing here is a Spring Boot application: no module is repackaged into
@@ -24,7 +24,7 @@
     <relativePath/>
   </parent>
 
-  <groupId>io.vaullet</groupId>
+  <groupId>dev.vaullet</groupId>
   <artifactId>common-parent</artifactId>
   <!--
     CI-friendly version. ${revision} is one of the three properties Maven resolves inside a
@@ -43,8 +43,8 @@
   <packaging>pom</packaging>
 
   <name>Vaullet Backend Common</name>
-  <description>Cross-cutting plumbing shared by @vaullet-io backend services</description>
-  <url>https://github.com/vaullet-io/backend-common</url>
+  <description>Cross-cutting plumbing shared by @vaullet-dev backend services</description>
+  <url>https://github.com/vaullet-dev/backend-common</url>
 
   <modules>
     <module>common-bom</module>
@@ -86,22 +86,22 @@
     <dependencies>
       <!-- Sibling modules, so a module POM never repeats ${project.version} -->
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-web</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-security</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.vaullet</groupId>
+        <groupId>dev.vaullet</groupId>
         <artifactId>common-test</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -127,7 +127,13 @@
     <repository>
       <id>github</id>
       <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/vaullet-io/backend-common</url>
+      <!--
+        The owner here must be the GitHub organisation that OWNS the repository, exactly as it
+        is spelled today. GitHub redirects a renamed org for git and for the web, but NOT for
+        Packages: a workflow's GITHUB_TOKEN is scoped to the repository it runs in, so a deploy
+        addressed to the old name is a 403 with nothing wrong upstream of it.
+      -->
+      <url>https://maven.pkg.github.com/vaullet-dev/backend-common</url>
     </repository>
     <!--
       No <snapshotRepository>, on purpose. Without one, a `deploy` of anything ending in
@@ -232,7 +238,7 @@
             <ignoreMissingOldVersion>true</ignoreMissingOldVersion>
             <!-- Only our own API. A transitive Spring type changing is Spring's version to bump. -->
             <includes>
-              <include>io.vaullet.common</include>
+              <include>dev.vaullet.common</include>
             </includes>
           </parameter>
         </configuration>

@@ -1,6 +1,6 @@
 # backend-common
 
-The plumbing every `@vaullet-io` backend service needs and none of them should own a copy of, per
+The plumbing every `@vaullet-dev` backend service needs and none of them should own a copy of, per
 [ADR-013](../architecture/docs/adr/013-backend-common-shared-library.md).
 
 Four artifacts, split by **what they drag onto a classpath**. Take the ones you need.
@@ -9,7 +9,7 @@ Four artifacts, split by **what they drag onto a classpath**. Take the ones you 
 <dependencyManagement>
   <dependencies>
     <dependency>
-      <groupId>io.vaullet</groupId>
+      <groupId>dev.vaullet</groupId>
       <artifactId>common-bom</artifactId>
       <version>0.1.0-SNAPSHOT</version>
       <type>pom</type>
@@ -20,15 +20,15 @@ Four artifacts, split by **what they drag onto a classpath**. Take the ones you 
 
 <dependencies>
   <dependency>
-    <groupId>io.vaullet</groupId>
+    <groupId>dev.vaullet</groupId>
     <artifactId>common-web</artifactId>
   </dependency>
   <dependency>
-    <groupId>io.vaullet</groupId>
+    <groupId>dev.vaullet</groupId>
     <artifactId>common-security</artifactId>
   </dependency>
   <dependency>
-    <groupId>io.vaullet</groupId>
+    <groupId>dev.vaullet</groupId>
     <artifactId>common-test</artifactId>
     <scope>test</scope>
   </dependency>
@@ -270,12 +270,12 @@ authenticating.
 ### `ArchitectureRules`
 
 ```java
-@AnalyzeClasses(packages = "io.vaullet.ledger", importOptions = ImportOption.DoNotIncludeTests.class)
+@AnalyzeClasses(packages = "dev.vaullet.ledger", importOptions = ImportOption.DoNotIncludeTests.class)
 class LayeringTest {
-    @ArchTest static final ArchRule layers = ArchitectureRules.layersAreRespected("io.vaullet.ledger");
-    @ArchTest static final ArchRule http   = ArchitectureRules.serviceLayerKnowsNothingAboutHttp("io.vaullet.ledger");
+    @ArchTest static final ArchRule layers = ArchitectureRules.layersAreRespected("dev.vaullet.ledger");
+    @ArchTest static final ArchRule http   = ArchitectureRules.serviceLayerKnowsNothingAboutHttp("dev.vaullet.ledger");
     @ArchTest static final ArchRule jdbc   = ArchitectureRules.persistenceStaysInTheDaoLayer(
-            "io.vaullet.ledger", "org.springframework.jdbc..");
+            "dev.vaullet.ledger", "org.springframework.jdbc..");
 }
 ```
 

@@ -32,7 +32,7 @@
   -->
   <groupId>dev.vaullet</groupId>
   <artifactId>common-bom</artifactId>
-  <version>0.1.0-fix-token-10</version>
+  <version>0.0.0-DEV</version>
   <packaging>pom</packaging>
 
   <properties>
@@ -65,7 +65,7 @@
 
   <!--
     Declared here, with an explicit version, because this POM has no parent to inherit plugin
-    management from. Without it the deployed BOM would carry a literal <version>0.1.0-fix-token-10</version>
+    management from. Without it the deployed BOM would carry a literal <version>0.0.0-DEV</version>
     and a consumer's import would fail on a property they cannot see.
   -->
   <build>

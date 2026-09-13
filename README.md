@@ -114,7 +114,7 @@ public enum LedgerErrorType implements ErrorType {
     INSUFFICIENT_FUNDS("insufficient-funds", HttpStatus.CONFLICT, "Insufficient funds");
 
     LedgerErrorType(String slug, HttpStatus status, String title) {
-        this.type = ErrorType.documentationUri(slug);   // https://docs.vaullet/errors/<slug>
+        this.type = ErrorType.documentationUri(slug);   // https://docs.vaullet.dev/errors/<slug>
         ...
     }
 }
@@ -149,7 +149,7 @@ The body is ADR-011 §7:
 
 ```json
 {
-  "type": "https://docs.vaullet/errors/insufficient-funds",
+  "type": "https://docs.vaullet.dev/errors/insufficient-funds",
   "title": "Insufficient funds",
   "status": 409,
   "detail": "available 40.0000 < requested 60.0000",

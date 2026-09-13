@@ -27,7 +27,7 @@
   <groupId>dev.vaullet</groupId>
   <artifactId>common-parent</artifactId>
   <!--
-    CI-friendly version. 0.0.0-DEV is one of the three properties Maven resolves inside a
+    CI-friendly version. 0.1.0-fix-token-10 is one of the three properties Maven resolves inside a
     <version> element, so the number lives in exactly one place and a release is
     `-Drevision=1.2.3` rather than a commit that rewrites six POMs. flatten-maven-plugin below
     substitutes the literal into the POM that gets installed and deployed, so a consumer never
@@ -39,7 +39,7 @@
 
     See the header of that script for the three commit types and what each one moves.
   -->
-  <version>0.0.0-DEV</version>
+  <version>0.1.0-fix-token-10</version>
   <packaging>pom</packaging>
 
   <name>Vaullet Backend Common</name>
@@ -146,9 +146,9 @@
   <build>
     <plugins>
       <!--
-        Resolves 0.0.0-DEV in the POM that is installed and deployed. Without it a consumer
+        Resolves 0.1.0-fix-token-10 in the POM that is installed and deployed. Without it a consumer
         resolving common-core would get a POM whose <version> is the literal string
-        "0.0.0-DEV", which Maven cannot use.
+        "0.1.0-fix-token-10", which Maven cannot use.
 
         Mode `resolveCiFriendliesOnly` is the conservative one: it substitutes revision/sha1/
         changelist and changes nothing else. The other modes rewrite the POM into an "effective"

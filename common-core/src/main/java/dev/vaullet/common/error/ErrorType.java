@@ -56,7 +56,7 @@ import org.springframework.http.HttpStatus;
 public interface ErrorType {
 
     /** ADR-011, §7. Resolvable documentation, one page per code. */
-    String DOCUMENTATION_BASE = "https://docs.vaullet/errors/";
+    String DOCUMENTATION_BASE = "https://docs.vaullet.dev/errors/";
 
     /**
      * Builds the RFC 9457 {@code type} URI for a slug, so no implementation has to retype the base.

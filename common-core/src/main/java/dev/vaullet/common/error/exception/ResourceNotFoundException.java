@@ -1,5 +1,7 @@
-package dev.vaullet.common.error;
+package dev.vaullet.common.error.exception;
 
+import dev.vaullet.common.error.ApplicationException;
+import dev.vaullet.common.error.CommonErrorType;
 import java.io.Serial;
 
 /** Thrown when a resource addressed by the caller does not exist. Maps to 404. */

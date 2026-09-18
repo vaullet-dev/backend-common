@@ -56,6 +56,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      # Reading GHCR Maven for japicmp's baseline. The workflow-level `permissions` block
+      # grants `contents: read` and, by declaring anything at all, drops every other scope to
+      # none — so without this the token cannot read Packages and the semver gate degrades to
+      # a silent pass rather than an error.
+      packages: read
 
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +102,14 @@ jobs:
           # Caches ~/.m2 keyed on the POMs. Without it, every run re-downloads the
           # dependency tree, which for the Spring Boot BOM is minutes per run.
           cache: maven
+          # Writes a settings.xml whose `github` server picks up the two environment
+          # variables the Build step exports. The POM's <repositories> entry is where
+          # japicmp finds the previous release; this is what lets it authenticate. Without
+          # it the metadata request is a 401, japicmp reports the baseline as missing, and
+          # `ignoreMissingOldVersion` passes the build with the gate doing nothing.
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
 
       # A pull request builds as the pre-release it would become — 0.2.0-holds-7, not a
       # placeholder — so the version machinery is exercised by every run rather than only by

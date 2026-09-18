@@ -120,6 +120,46 @@
   </dependencyManagement>
 
   <!--
+    Where the semver gate's baseline comes from.
+
+    This project depends on nothing it publishes, so without this block the only repository in
+    play is Central — and japicmp below then looks for dev.vaullet:common-*/maven-metadata.xml
+    there, does not find it, and `ignoreMissingOldVersion` turns the miss into a silent pass.
+    A gate that cannot reach the previous release does not fail. It stops being a gate, and
+    says so only in a WARNING nobody reads on a green build.
+
+    Resolution only. Publishing is still distributionManagement's job below; the two name the
+    same place for different halves of the round trip.
+
+    GitHub Packages demands authentication even to READ, so this needs a `github` server in
+    settings.xml — from actions/setup-java in CI, or a PAT with read:packages locally. Without
+    one the request is a 401, which reaches japicmp as the same "missing old version" it would
+    report for a module that genuinely has no release yet.
+  -->
+  <repositories>
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages — vaullet-dev/backend-common</name>
+      <!--
+        The owner must be the organisation as spelled today, for the reason spelled out under
+        distributionManagement below: GitHub does not redirect a renamed org for Packages.
+      -->
+      <url>https://maven.pkg.github.com/vaullet-dev/backend-common</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <!--
+        Snapshots off, and there are none to fetch — this project publishes no snapshot
+        repository at all. Off here too, so a baseline that somehow resolves to a -SNAPSHOT
+        fails outright rather than comparing today's API against something mutable.
+      -->
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+  <!--
     GHCR Maven, matching ADR-002's contract pipeline. Credentials come from the
     `github` server in the CI-generated settings.xml, never from this file.
   -->
@@ -206,9 +246,29 @@
         =================================================
 
         A README that says "we use semver" is a promise; this plugin is the part that keeps it.
-        japicmp compares the API of each module against its last release and fails the build when
-        the version number does not match the size of the change: remove a public method without
-        bumping MAJOR, or add one without bumping MINOR, and the release stops here.
+        japicmp compares the API of each module against its last release and fails the build when a
+        breaking change is declared as something smaller: remove a public method, narrow a
+        visibility, change a signature — anything binary-incompatible — without bumping MAJOR, and
+        the release stops here.
+
+        What it does NOT catch is a pure addition. japicmp derives its suggestion from binary
+        compatibility, and adding a method is compatible, so a new public method shipped as a PATCH
+        is listed in the report and passes the gate. MINOR-for-additions is a convention here held
+        up by review, not by this plugin. Both halves were checked rather than assumed: at 0.1.2
+        against 0.1.1, demoting a public constructor to package-private fails with "Versions of
+        archives indicate a patch change but binary incompatible changes found", while adding a
+        public method to the same class passes.
+
+        The baseline arrives through the <repositories> block near the top of this file. Without it
+        the only repository in play is Central, the maven-metadata.xml lookup for dev.vaullet:common-*
+        finds nothing there, and `ignoreMissingOldVersion` below turns that miss into a green build
+        with the gate doing nothing at all.
+
+        Note also that japicmp takes the newest release BELOW the version being built. The
+        `0.0.0-DEV` default is a placeholder that sorts under every real release, so a plain
+        `mvn verify` on a laptop compares against nothing and always passes. The gate is a CI
+        construct: it means something only when -Drevision carries the version this build would
+        actually publish.
 
         This is the same shape the rest of the platform already uses for its other contracts —
         `oasdiff` gating the OpenAPI document (ADR-011 §5) and FULL_TRANSITIVE gating event schemas

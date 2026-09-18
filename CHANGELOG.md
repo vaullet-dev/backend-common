@@ -11,6 +11,20 @@ Entries are written under **Unreleased** as the change lands, and the heading is
 
 ## [Unreleased]
 
+### Changed — **breaking**
+
+- **The concrete exceptions moved to `dev.vaullet.common.error.exception`.**
+  `ResourceNotFoundException`, `ResourceConflictException` and `UpstreamUnavailableException` now live
+  one package down; `ErrorType`, `CommonErrorType` and `ApplicationException` stay where they are.
+  The rule applied across every repository on 2026-09-17: **the abstract contract stays up, concrete
+  throwables go down**. It is a real seam rather than a folder — `exception` depends up on `error`
+  and nothing depends down.
+
+  This changes public fully-qualified names, so it is a **MAJOR** change under this library's
+  versioning and wants a `0.2.0`. No consumer imported the three classes at the time of the move, so
+  nothing broke; a consumer adopting `0.2.0` updates its imports in the same commit that bumps
+  `common.version`.
+
 ### Added
 
 - `common-core` — `ErrorType` as an interface plus `CommonErrorType`, so a service declares its own

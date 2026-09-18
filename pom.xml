@@ -77,7 +77,7 @@
 
     <!-- Versions not managed by the Spring Boot BOM -->
     <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
-    <japicmp-maven-plugin.version>0.23.1</japicmp-maven-plugin.version>
+    <japicmp-maven-plugin.version>0.26.2</japicmp-maven-plugin.version>
     <springdoc.version>3.1.0</springdoc.version>
     <archunit.version>1.4.1</archunit.version>
   </properties>

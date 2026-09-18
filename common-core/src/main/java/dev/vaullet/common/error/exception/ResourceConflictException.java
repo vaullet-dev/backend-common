@@ -1,5 +1,7 @@
-package dev.vaullet.common.error;
+package dev.vaullet.common.error.exception;
 
+import dev.vaullet.common.error.ApplicationException;
+import dev.vaullet.common.error.CommonErrorType;
 import java.io.Serial;
 
 /** Thrown when a request would violate a uniqueness or state invariant. Maps to 409. */

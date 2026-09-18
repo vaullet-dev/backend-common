@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import io.micrometer.tracing.Tracer;
 import dev.vaullet.common.error.CommonErrorType;
 import dev.vaullet.common.error.ErrorType;
-import dev.vaullet.common.error.ResourceNotFoundException;
+import dev.vaullet.common.error.exception.ResourceNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

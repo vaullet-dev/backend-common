@@ -59,3 +59,4 @@ Entries are written under **Unreleased** as the change lands, and the heading is
   `vaullet.openapi`), leaving `app.*` free for what a service genuinely owns.
 
 [Unreleased]: https://github.com/vaullet-dev/backend-common/commits/main
+

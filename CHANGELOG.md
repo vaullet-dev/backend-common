@@ -20,13 +20,22 @@ Entries are written under **Unreleased** as the change lands, and the heading is
   throwables go down**. It is a real seam rather than a folder — `exception` depends up on `error`
   and nothing depends down.
 
-  This changes public fully-qualified names, so it is a **MAJOR** change under this library's
-  versioning and wants a `0.2.0`. No consumer imported the three classes at the time of the move, so
-  nothing broke; a consumer adopting `0.2.0` updates its imports in the same commit that bumps
-  `common.version`.
+  This changes public fully-qualified names, so it is a **MAJOR** change, and the release that
+  carries it is `1.0.0`. japicmp checks `0.x` like any other version
+  (`breakBuildBasedOnSemanticVersioningForMajorVersionZero`): on 2026-09-18 it refused the move as
+  `0.1.2` (*"Versions of archives indicate a patch change but binary incompatible changes found"*),
+  and nothing has been published since `0.1.1`. The commit that releases it has to say so, with `!`
+  after the type or a `BREAKING CHANGE:` footer; otherwise `scripts/version.sh` computes `0.2.0` and the
+  gate fails again. wallet-auth-service imports all three by now and updates its imports in the
+  commit that bumps `common.version` (wallet-auth-service#35).
 
 ### Added
 
+- `common-web` — **Swagger UI signs in through Keycloak** (backend-common#16). Next to `bearer-jwt`,
+  the OpenAPI document offers `keycloak`: authorization code with PKCE, with Keycloak's endpoints
+  under `spring.security.oauth2.resourceserver.jwt.issuer-uri`, so a service sets nothing. No issuer
+  (the `local` profile), no scheme. `platform-defaults.yaml` presets the client, `swagger-ui`, which
+  gitops creates; `vaullet.openapi.oauth2.*` switches it off or points it at another issuer.
 - `common-core` — `ErrorType` as an interface plus `CommonErrorType`, so a service declares its own
   codes without a pull request against this library
 - `common-core` — `ApplicationException` and the general-purpose `ResourceNotFoundException`,

@@ -37,7 +37,7 @@ import org.springframework.context.annotation.Import;
  */
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@EnableConfigurationProperties({ApiProperties.class, OpenApiProperties.class})
+@EnableConfigurationProperties({ApiProperties.class, OpenApiProperties.class, OpenApiOAuth2Properties.class})
 public class WebAutoConfiguration {
 
     /**

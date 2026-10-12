@@ -93,3 +93,10 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
+    # "Authorize" signs in through Keycloak: OpenApiConfiguration's `keycloak` scheme, with the
+    # public client gitops creates for it (realm/26-vaullet-swagger-ui-client.yaml). Public means no
+    # secret, so PKCE does that job. One client for every service, hence set here rather than in each.
+    oauth:
+      client-id: swagger-ui
+      use-pkce-with-authorization-code-grant: true
+      scopes: openid

@@ -193,8 +193,21 @@ conclude nothing sets it. One greppable line fixes that.
 ### OpenAPI
 
 springdoc is `<optional>` — declare it in the service and `OpenApiConfiguration` switches on via
-`@ConditionalOnClass`. It contributes the info block and the bearer scheme, so "Authorize" in Swagger
-UI works everywhere.
+`@ConditionalOnClass`. It contributes the info block and two security schemes, so "Authorize" in
+Swagger UI works everywhere, either way:
+
+- **`bearer-jwt`** — a token pasted in.
+- **`keycloak`** — Swagger UI signs in itself: authorization code with PKCE, through the public client
+  `swagger-ui` (gitops, `realm/26-vaullet-swagger-ui-client.yaml`), preset in `platform-defaults.yaml`
+  as `springdoc.swagger-ui.oauth.*`. The endpoints are Keycloak's under
+  `spring.security.oauth2.resourceserver.jwt.issuer-uri`, so a service sets nothing; without an issuer,
+  as under the `local` profile where no token is needed, the scheme is left out.
+  `vaullet.openapi.oauth2.enabled: false` switches it off, and `authorization-url` / `token-url` point
+  it at an issuer that is not Keycloak.
+
+Each service's Swagger UI needs its redirect URI on that client, e.g.
+`https://vaullet.dev/api/auth/swagger-ui/oauth2-redirect.html`: Keycloak takes exact URIs, not a
+pattern per service.
 
 It deliberately declares **no** `GroupedOpenApi` beans. ADR-011 §5 requires one fragment per sellable
 module, selected by controller package, and that mapping is knowledge only the service has — a

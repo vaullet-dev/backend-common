@@ -1,5 +1,9 @@
 package dev.vaullet.common.web;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import io.swagger.v3.core.jackson.ModelResolver;
+import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
@@ -9,6 +13,9 @@ import io.swagger.v3.oas.models.security.OAuthFlows;
 import io.swagger.v3.oas.models.security.Scopes;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
+import org.springdoc.core.customizers.GlobalOperationCustomizer;
+import java.util.Locale;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,6 +97,60 @@ class OpenApiConfiguration {
         });
 
         return api;
+    }
+
+    /**
+     * The error body every 4xx and 5xx refers to. A customizer rather than part of
+     * {@link #apiDefinition}, so a service that brings its own {@code OpenAPI} bean still gets it, and
+     * global, so it reaches every {@code GroupedOpenApi} fragment too. See {@link OpenApiResponses}.
+     */
+    @Bean
+    GlobalOpenApiCustomizer problemSchemas() {
+        return OpenApiResponses::addProblemSchemas;
+    }
+
+    /** Errors as problem+json, and a success response where an operation declares none. */
+    @Bean
+    GlobalOperationCustomizer problemResponses() {
+        return (operation, handler) -> OpenApiResponses.describe(operation, OpenApiResponses.successStatus(handler));
+    }
+
+    /**
+     * The document's property names in the wire format's naming strategy: {@code external_ref}, not
+     * {@code externalRef}.
+     *
+     * <p>swagger-core builds every schema with its own Jackson 2 mapper ({@link Json#mapper()}), and
+     * {@code spring.jackson.*} never reaches it, because Spring Boot 4 configures Jackson 3. Without this
+     * the document shows the Java names for bodies the service reads and writes only in snake_case
+     * (ADR-011, §8), and a client that follows the document has every multi-word field ignored. The
+     * strategy is read from the same property, so a service that overrides it is described as it speaks.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    ModelResolver modelResolver(@Value("${spring.jackson.property-naming-strategy:}") String strategy) {
+        var mapper = Json.mapper().copy();
+        namingStrategy(strategy).ifPresent(mapper::setPropertyNamingStrategy);
+        return new ModelResolver(mapper);
+    }
+
+    /**
+     * Jackson 2's strategy for the name Spring Boot takes ({@code SNAKE_CASE}, any case), or nothing
+     * when none is set. A name with no Jackson 2 constant fails startup rather than silently publishing
+     * the wrong field names.
+     */
+    static Optional<PropertyNamingStrategy> namingStrategy(@Nullable String name) {
+        if (!StringUtils.hasText(name)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of((PropertyNamingStrategy) PropertyNamingStrategies.class
+                    .getField(name.strip().toUpperCase(Locale.ROOT))
+                    .get(null));
+        } catch (NoSuchFieldException | IllegalAccessException | ClassCastException e) {
+            throw new IllegalStateException("spring.jackson.property-naming-strategy=" + name
+                    + " has no Jackson 2 constant in PropertyNamingStrategies, so the OpenAPI document "
+                    + "cannot be described in it", e);
+        }
     }
 
     /**

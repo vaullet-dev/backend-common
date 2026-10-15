@@ -1,5 +1,6 @@
 package dev.vaullet.common.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -14,12 +15,15 @@ import dev.vaullet.common.error.exception.ResourceNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.PropertyNamingStrategies;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.http.MediaType;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -105,6 +109,47 @@ class ApiExceptionHandlerTest {
         overridden.perform(get("/probe/contended")).andExpect(jsonPath("$.code").value("RESOURCE_CONFLICT"));
     }
 
+    @Test
+    @DisplayName("under the platform's snake_case, a failing field is named as the client sends it, nested ones too")
+    void validationFailureNamesFieldsInTheWireFormat() throws Exception {
+        var handler = new ApiExceptionHandler(noTracer());
+        handler.setEnvironment(new MockEnvironment().withProperty("spring.jackson.property-naming-strategy", "SNAKE_CASE"));
+        MockMvc snakeCase = MockMvcBuilders.standaloneSetup(new ProbeController())
+                .setControllerAdvice(handler)
+                .build();
+
+        snakeCase.perform(post("/probe/gadgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"\",\"mainPart\":{\"unitCount\":0}}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.length()").value(2))
+                .andExpect(jsonPath("$.errors[0].field").value("display_name"))
+                .andExpect(jsonPath("$.errors[1].field").value("main_part.unit_count"));
+    }
+
+    @Test
+    @DisplayName("a path keeps its indices and dots; only the names change")
+    void translatesEachSegment() {
+        assertThat(ApiExceptionHandler.translatePath("roles[0].firstName", PropertyNamingStrategies.SNAKE_CASE))
+                .isEqualTo("roles[0].first_name");
+        assertThat(ApiExceptionHandler.translatePath("identity.emailVerified", PropertyNamingStrategies.SNAKE_CASE))
+                .isEqualTo("identity.email_verified");
+        assertThat(ApiExceptionHandler.translatePath("size", PropertyNamingStrategies.SNAKE_CASE)).isEqualTo("size");
+    }
+
+    @Test
+    @DisplayName("with no strategy set, fields keep their Java names")
+    void noStrategyKeepsJavaNames() throws Exception {
+        var handler = new ApiExceptionHandler(noTracer());
+        handler.setEnvironment(new MockEnvironment());
+        MockMvc plain = MockMvcBuilders.standaloneSetup(new ProbeController()).setControllerAdvice(handler).build();
+
+        plain.perform(post("/probe/gadgets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"\",\"mainPart\":{\"unitCount\":1}}"))
+                .andExpect(jsonPath("$.errors[0].field").value("displayName"));
+    }
+
     // ---------------------------------------------------------------------
 
     @RestController
@@ -129,9 +174,18 @@ class ApiExceptionHandlerTest {
         String create(@Valid @RequestBody WidgetRequest request) {
             return request.name();
         }
+
+        @PostMapping("/probe/gadgets")
+        String createGadget(@Valid @RequestBody GadgetRequest request) {
+            return request.displayName();
+        }
     }
 
     record WidgetRequest(@NotBlank String name, @Min(1) int size) {}
+
+    record GadgetRequest(@NotBlank String displayName, @Valid @NotNull Part mainPart) {}
+
+    record Part(@Min(1) int unitCount) {}
 
     /**
      * Not every context has tracing — a {@code @WebMvcTest} slice typically does not — and the

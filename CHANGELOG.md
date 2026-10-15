@@ -11,6 +11,67 @@ Entries are written under **Unreleased** as the change lands, and the heading is
 
 ## [Unreleased]
 
+### Fixed
+
+- `common-web` — **The document is described as OpenAPI 3.1, the version springdoc writes**
+  (backend-common#19). 1.1.0's model resolver was built for 3.0, so inside springdoc's 3.1 document
+  every object schema lost its `type`, a description next to a `$ref` was dropped, the money example
+  `60.00` came out as `60.0`, and an array's items took the array's description and example. The
+  hand-built `Problem` and `FieldError` schemas set only the 3.0 `type`, so every field of the error
+  body was untyped as well. The resolver is now built with `Json31.mapper()` and `openapi31`
+  (following `springdoc.api-docs.version`), the error schemas from swagger's typed schema classes, and
+  `OpenApiDocumentTest` reads the served document to hold it there.
+- `common-web` — **A service's own `ModelConverter` runs again.** springdoc puts each converter bean
+  at the front of swagger-core's chain, and the 1.1.0 resolver, which ends the chain, could land in
+  front of a converter the service declares and skip it without a word. The resolver is now ordered
+  first, so it runs last.
+- `common-web` — **A service with swagger's models but no springdoc starts again.** The OpenAPI
+  configuration switched on by swagger's `OpenAPI` class, and since 1.1.0 it also needs springdoc and
+  swagger-core, so such a service failed startup with `NoClassDefFoundError`. It now switches on by
+  springdoc's own class.
+- `common-web` — **A naming strategy given as a class name no longer stops startup.** Spring Boot
+  takes one for `spring.jackson.property-naming-strategy`, and 1.1.0 refused to start over the
+  document alone. The document now keeps the Java names and logs a warning, as validation errors
+  already did.
+- `common-web` — **`code` and `type` are no longer required in the `Problem` schema.** A 400 Spring
+  raises itself (a malformed body, a path variable that is not a UUID) has no `code`, and no `type`,
+  which RFC 9457 reads as `about:blank`, so a client validating responses against the document
+  rejected it. `code` is still described as the field to branch on.
+- `common-web` — The success response `OpenApiResponses` adds comes first, so Swagger UI lists it
+  ahead of the errors rather than after them.
+
+### Notes for adopters
+
+- Validation errors translate the field path of a query-parameter object by the same strategy as a
+  body's. That matches the wire when its parameters are named `@BindParam("first_name")`; a multi-word
+  query parameter bound by its Java name is reported in snake_case. Documented, unchanged since 1.1.0.
+
+No public API changes: **PATCH**, `1.1.1`.
+
+## [1.1.0] — 2026-10-15
+
+### Added
+
+- `common-web` — **The OpenAPI document describes errors as they are sent.** Every 4xx and 5xx is
+  `application/problem+json` with the `Problem` schema (`FieldError` for its `errors`), the body
+  `ProblemDetails` builds, instead of the success body springdoc put on every response. An operation
+  that declares only its errors gets its success response back, with the status its `@ResponseStatus`
+  names. `platform-defaults.yaml` describes `application/json` instead of springdoc's `*/*`.
+
+### Fixed
+
+- `common-web` — **Swagger UI names fields as the wire does.** swagger-core describes the models with
+  its own Jackson 2 mapper, which never sees `spring.jackson.property-naming-strategy`, so the document
+  said `externalRef` for a body the service reads only as `external_ref`, and a body built from it in
+  "Try it out" had every multi-word field ignored. The model resolver now takes the same strategy.
+- `common-web` — **Validation errors name a field as the client sent it**: `errors[].field` is
+  `identity.first_name`, not `identity.firstName`, under the same strategy.
+
+New beans (the model resolver backs off when a service declares its own) and a new interface on
+`ApiExceptionHandler`: **MINOR**, `1.1.0`.
+
+## [1.0.0] — 2026-10-13
+
 ### Changed — **breaking**
 
 - **The concrete exceptions moved to `dev.vaullet.common.error.exception`.**
@@ -67,5 +128,7 @@ Entries are written under **Unreleased** as the change lands, and the heading is
 - Configuration moves to the `vaullet.*` prefix (`vaullet.api`, `vaullet.security`,
   `vaullet.openapi`), leaving `app.*` free for what a service genuinely owns.
 
-[Unreleased]: https://github.com/vaullet-dev/backend-common/commits/main
+[Unreleased]: https://github.com/vaullet-dev/backend-common/compare/v1.1.0...master
+[1.1.0]: https://github.com/vaullet-dev/backend-common/releases/tag/v1.1.0
+[1.0.0]: https://github.com/vaullet-dev/backend-common/releases/tag/v1.0.0
 

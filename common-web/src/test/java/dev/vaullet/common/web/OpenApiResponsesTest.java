@@ -52,11 +52,12 @@ class OpenApiResponsesTest {
     }
 
     @Test
-    @DisplayName("an operation that only declares errors gets its success response, with the return type")
+    @DisplayName("an operation that only declares errors gets its success response, first, with the return type")
     void adds_the_missing_success() {
         Operation operation = OpenApiResponses.describe(errorsOnly(), 200);
 
-        assertThat(operation.getResponses()).containsKey("200");
+        // First: Swagger UI lists the responses in the document's order.
+        assertThat(operation.getResponses().keySet()).containsExactly("200", "404", "503");
         assertThat(refOf(operation.getResponses().get("200"), "application/json")).isEqualTo(ACCOUNT);
     }
 
@@ -110,7 +111,18 @@ class OpenApiResponsesTest {
         Schema<?> problem = api.getComponents().getSchemas().get(OpenApiResponses.PROBLEM);
         assertThat(problem.getProperties())
                 .containsOnlyKeys("type", "title", "status", "detail", "instance", "code", "timestamp", "trace_id", "errors");
-        assertThat(problem.getRequired()).contains("code");
         assertThat(api.getComponents().getSchemas()).containsKey(OpenApiResponses.FIELD_ERROR);
+    }
+
+    @Test
+    @DisplayName("code is described as the field to branch on, but neither it nor type is required: Spring's own 400s have none")
+    void code_is_not_required() {
+        var api = new OpenAPI();
+
+        OpenApiResponses.addProblemSchemas(api);
+
+        Schema<?> problem = api.getComponents().getSchemas().get(OpenApiResponses.PROBLEM);
+        assertThat(problem.getRequired()).containsExactlyInAnyOrder("title", "status");
+        assertThat(problem.getProperties().get("code").getDescription()).contains("branches on");
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.core.util.Json;
+import io.swagger.v3.core.util.Json31;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
@@ -15,13 +16,19 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.GlobalOperationCustomizer;
+import org.springdoc.core.properties.SpringDocConfigProperties;
 import java.util.Locale;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.util.StringUtils;
 
 /**
@@ -55,6 +62,8 @@ import org.springframework.util.StringUtils;
  */
 @Configuration(proxyBeanMethods = false)
 class OpenApiConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenApiConfiguration.class);
 
     static final String BEARER_SCHEME = "bearer-jwt";
     static final String KEYCLOAK_SCHEME = "keycloak";
@@ -124,19 +133,43 @@ class OpenApiConfiguration {
      * the document shows the Java names for bodies the service reads and writes only in snake_case
      * (ADR-011, §8), and a client that follows the document has every multi-word field ignored. The
      * strategy is read from the same property, so a service that overrides it is described as it speaks.
+     *
+     * <p>It is built for the OpenAPI version springdoc writes, 3.1 unless a service sets
+     * {@code springdoc.api-docs.version}, the way swagger-core builds its own: {@link Json31#mapper()} and
+     * {@code openapi31}. A 3.0 resolver inside a 3.1 document leaves every object schema without its
+     * {@code type}, drops the description next to a {@code $ref}, writes the money example {@code 60.00}
+     * as {@code 60.0} and gives an array's items the array's description and example.
+     *
+     * <p>Ordered first so that it runs last. springdoc puts each {@code ModelConverter} bean at the
+     * front of swagger-core's chain, in bean order, and this resolver ends the chain: it describes every
+     * type itself and never hands one on. Unordered, it could land ahead of a converter the service
+     * declares, and that converter would be skipped without a word.
      */
     @Bean
     @ConditionalOnMissingBean
-    ModelResolver modelResolver(@Value("${spring.jackson.property-naming-strategy:}") String strategy) {
-        var mapper = Json.mapper().copy();
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    ModelResolver modelResolver(
+            @Value("${spring.jackson.property-naming-strategy:}") String strategy,
+            ObjectProvider<SpringDocConfigProperties> springDoc) {
+        SpringDocConfigProperties properties = springDoc.getIfAvailable();
+        return resolver(strategy, properties == null || properties.isOpenapi31());
+    }
+
+    /** The resolver for a naming strategy and an OpenAPI version. See {@link #modelResolver}. */
+    static ModelResolver resolver(String strategy, boolean openapi31) {
+        var mapper = (openapi31 ? Json31.mapper() : Json.mapper()).copy();
         namingStrategy(strategy).ifPresent(mapper::setPropertyNamingStrategy);
-        return new ModelResolver(mapper);
+        return new ModelResolver(mapper).openapi31(openapi31);
     }
 
     /**
      * Jackson 2's strategy for the name Spring Boot takes ({@code SNAKE_CASE}, any case), or nothing
-     * when none is set. A name with no Jackson 2 constant fails startup rather than silently publishing
-     * the wrong field names.
+     * when none is set.
+     *
+     * <p>Spring Boot also takes the class name of a strategy of the service's own. That is a Jackson 3
+     * class, which swagger-core's Jackson 2 mapper cannot use, so such a name is logged and the document
+     * keeps the Java names, as {@link ApiExceptionHandler} keeps them in validation errors. Failing
+     * startup over the Swagger UI would take down a service that speaks correctly.
      */
     static Optional<PropertyNamingStrategy> namingStrategy(@Nullable String name) {
         if (!StringUtils.hasText(name)) {
@@ -146,10 +179,10 @@ class OpenApiConfiguration {
             return Optional.of((PropertyNamingStrategy) PropertyNamingStrategies.class
                     .getField(name.strip().toUpperCase(Locale.ROOT))
                     .get(null));
-        } catch (NoSuchFieldException | IllegalAccessException | ClassCastException e) {
-            throw new IllegalStateException("spring.jackson.property-naming-strategy=" + name
-                    + " has no Jackson 2 constant in PropertyNamingStrategies, so the OpenAPI document "
-                    + "cannot be described in it", e);
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            log.warn("spring.jackson.property-naming-strategy={} is not a PropertyNamingStrategies constant; "
+                    + "the OpenAPI document names fields as Java does", name);
+            return Optional.empty();
         }
     }
 

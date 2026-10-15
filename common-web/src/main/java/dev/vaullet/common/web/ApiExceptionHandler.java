@@ -87,6 +87,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler implemen
      * {@code identity.first_name} under the platform's snake_case. Set from
      * {@code spring.jackson.property-naming-strategy} once the bean has its environment; until then,
      * and without a strategy, paths are left as they are.
+     *
+     * <p>It applies to every {@link MethodArgumentNotValidException}, a query-parameter object's as well
+     * as a body's, and Jackson names only the body. So it assumes a query-parameter object's wire names
+     * follow the same strategy, as they do when they are {@code @BindParam("first_name")}. A multi-word
+     * query parameter bound by its Java name, {@code ?firstName=}, is reported as {@code first_name}.
      */
     private UnaryOperator<String> fieldNames = UnaryOperator.identity();
 

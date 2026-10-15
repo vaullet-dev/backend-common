@@ -1,7 +1,6 @@
 package dev.vaullet.common.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import io.swagger.v3.core.converter.AnnotatedType;
@@ -135,7 +134,7 @@ class OpenApiConfigurationTest {
     }
 
     private static Map<String, Schema> propertiesOf(String strategy) {
-        var context = new ModelConverterContextImpl(new OpenApiConfiguration().modelResolver(strategy));
+        var context = new ModelConverterContextImpl(OpenApiConfiguration.resolver(strategy, true));
         context.resolve(new AnnotatedType(Sample.class));
         return context.getDefinedModels().get("Sample").getProperties();
     }
@@ -164,11 +163,11 @@ class OpenApiConfigurationTest {
     }
 
     @Test
-    @DisplayName("a strategy is read in any case, and one Jackson 2 lacks fails loudly instead of drifting")
+    @DisplayName("a strategy is read in any case, and a class name Jackson 2 cannot use leaves the Java names instead of failing startup")
     void strategy_names() {
         assertThat(OpenApiConfiguration.namingStrategy(" kebab_case ")).contains(PropertyNamingStrategies.KEBAB_CASE);
-        assertThatThrownBy(() -> OpenApiConfiguration.namingStrategy("com.example.Custom"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("com.example.Custom");
+        // Spring Boot takes a strategy's class name too; that class is Jackson 3's.
+        assertThat(OpenApiConfiguration.namingStrategy("com.example.CustomNamingStrategy")).isEmpty();
+        assertThat(propertiesOf("com.example.CustomNamingStrategy")).containsOnlyKeys("externalRef", "emailVerified");
     }
 }

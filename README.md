@@ -209,6 +209,17 @@ Each service's Swagger UI needs its redirect URI on that client, e.g.
 `https://vaullet.dev/api/auth/swagger-ui/oauth2-redirect.html`: Keycloak takes exact URIs, not a
 pattern per service.
 
+**The document describes what the wire carries.** Property names follow
+`spring.jackson.property-naming-strategy`, snake_case under the platform defaults. swagger-core
+describes the models with a Jackson 2 mapper of its own, which never sees that setting, so
+`OpenApiConfiguration` gives it a model resolver with the same strategy, built for OpenAPI 3.1, the
+version springdoc writes. The resolver ends swagger-core's converter chain and is ordered to run
+last, so a `ModelConverter` the service declares still runs ahead of it. A strategy given as a class
+name, which Spring Boot also takes, is a Jackson 3 class the resolver cannot use: the document then
+keeps the Java names, and the log says so. Every 4xx and 5xx is `application/problem+json` with the
+`Problem` schema, and an operation that declares only its errors keeps its success response, listed
+first (`OpenApiResponses`). `OpenApiDocumentTest` holds the served document to the wire.
+
 It deliberately declares **no** `GroupedOpenApi` beans. ADR-011 §5 requires one fragment per sellable
 module, selected by controller package, and that mapping is knowledge only the service has — a
 controller in the wrong group ships an endpoint to a customer who did not buy it.

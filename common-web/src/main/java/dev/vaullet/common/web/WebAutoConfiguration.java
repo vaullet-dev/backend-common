@@ -1,7 +1,6 @@
 package dev.vaullet.common.web;
 
 import io.micrometer.tracing.Tracer;
-import io.swagger.v3.oas.models.OpenAPI;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -59,9 +58,14 @@ public class WebAutoConfiguration {
     /**
      * Only when springdoc is on the classpath. The dependency is {@code <optional>} in this module's
      * POM, so a service without a published contract neither declares it nor pays for it.
+     *
+     * <p>Conditional on springdoc itself, by name, not on swagger's {@code OpenAPI} model: a service can
+     * have the models without springdoc, and {@link OpenApiConfiguration} needs springdoc's customizers
+     * and swagger-core's {@code ModelResolver}, so it would fail that service's startup with a
+     * {@code NoClassDefFoundError}.
      */
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(OpenAPI.class)
+    @ConditionalOnClass(name = "org.springdoc.core.configuration.SpringDocConfiguration")
     @Import(OpenApiConfiguration.class)
     static class OpenApiSupport {}
 }

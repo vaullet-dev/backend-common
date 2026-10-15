@@ -1,11 +1,17 @@
 package dev.vaullet.common.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import io.swagger.v3.core.converter.AnnotatedType;
+import io.swagger.v3.core.converter.ModelConverterContextImpl;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.security.OAuthFlow;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -107,5 +113,62 @@ class OpenApiConfigurationTest {
                 .containsEntry("springdoc.swagger-ui.oauth.client-id", "swagger-ui")
                 .containsEntry("springdoc.swagger-ui.oauth.use-pkce-with-authorization-code-grant", true)
                 .containsEntry("springdoc.swagger-ui.oauth.scopes", "openid");
+    }
+
+    /** A body with multi-word fields, the shape every request and response here has. */
+    static final class Sample {
+        private final String externalRef;
+        private final boolean emailVerified;
+
+        Sample(String externalRef, boolean emailVerified) {
+            this.externalRef = externalRef;
+            this.emailVerified = emailVerified;
+        }
+
+        public String getExternalRef() {
+            return externalRef;
+        }
+
+        public boolean isEmailVerified() {
+            return emailVerified;
+        }
+    }
+
+    private static Map<String, Schema> propertiesOf(String strategy) {
+        var context = new ModelConverterContextImpl(new OpenApiConfiguration().modelResolver(strategy));
+        context.resolve(new AnnotatedType(Sample.class));
+        return context.getDefinedModels().get("Sample").getProperties();
+    }
+
+    @Test
+    @DisplayName("the document names fields as the wire does: snake_case under the platform default")
+    void snake_case_properties() {
+        assertThat(propertiesOf("SNAKE_CASE")).containsOnlyKeys("external_ref", "email_verified");
+    }
+
+    @Test
+    @DisplayName("the platform default is SNAKE_CASE, the value the document follows")
+    void platform_default_naming() {
+        var yaml = new YamlPropertiesFactoryBean();
+        yaml.setResources(new ClassPathResource("vaullet/platform-defaults.yaml"));
+
+        assertThat(yaml.getObject()).containsEntry("spring.jackson.property-naming-strategy", "SNAKE_CASE");
+        assertThat(OpenApiConfiguration.namingStrategy("SNAKE_CASE")).contains(PropertyNamingStrategies.SNAKE_CASE);
+    }
+
+    @Test
+    @DisplayName("a service that names no strategy is described with the Java names, as it speaks")
+    void no_strategy() {
+        assertThat(OpenApiConfiguration.namingStrategy("")).isEmpty();
+        assertThat(propertiesOf("")).containsOnlyKeys("externalRef", "emailVerified");
+    }
+
+    @Test
+    @DisplayName("a strategy is read in any case, and one Jackson 2 lacks fails loudly instead of drifting")
+    void strategy_names() {
+        assertThat(OpenApiConfiguration.namingStrategy(" kebab_case ")).contains(PropertyNamingStrategies.KEBAB_CASE);
+        assertThatThrownBy(() -> OpenApiConfiguration.namingStrategy("com.example.Custom"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("com.example.Custom");
     }
 }

@@ -27,7 +27,7 @@
   <groupId>dev.vaullet</groupId>
   <artifactId>common-parent</artifactId>
   <!--
-    CI-friendly version. 0.1.0-fix-token-10 is one of the three properties Maven resolves inside a
+    CI-friendly version. 1.0.1-local is one of the three properties Maven resolves inside a
     <version> element, so the number lives in exactly one place and a release is
     `-Drevision=1.2.3` rather than a commit that rewrites six POMs. flatten-maven-plugin below
     substitutes the literal into the POM that gets installed and deployed, so a consumer never
@@ -39,7 +39,7 @@
 
     See the header of that script for the three commit types and what each one moves.
   -->
-  <version>0.1.0-fix-token-10</version>
+  <version>1.0.1-local</version>
   <packaging>pom</packaging>
 
   <name>Vaullet Backend Common</name>
@@ -186,9 +186,9 @@
   <build>
     <plugins>
       <!--
-        Resolves 0.1.0-fix-token-10 in the POM that is installed and deployed. Without it a consumer
+        Resolves 1.0.1-local in the POM that is installed and deployed. Without it a consumer
         resolving common-core would get a POM whose <version> is the literal string
-        "0.1.0-fix-token-10", which Maven cannot use.
+        "1.0.1-local", which Maven cannot use.
 
         Mode `resolveCiFriendliesOnly` is the conservative one: it substitutes revision/sha1/
         changelist and changes nothing else. The other modes rewrite the POM into an "effective"
@@ -265,7 +265,7 @@
         with the gate doing nothing at all.
 
         Note also that japicmp takes the newest release BELOW the version being built. The
-        `0.0.0-DEV` default is a placeholder that sorts under every real release, so a plain
+        `1.0.1-local` default is a placeholder that sorts under every real release, so a plain
         `mvn verify` on a laptop compares against nothing and always passes. The gate is a CI
         construct: it means something only when -Drevision carries the version this build would
         actually publish.

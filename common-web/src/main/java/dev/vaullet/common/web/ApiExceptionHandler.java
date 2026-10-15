@@ -6,21 +6,30 @@ import dev.vaullet.common.error.CommonErrorType;
 import dev.vaullet.common.error.ErrorType;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
+import java.util.Locale;
+import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.EnvironmentAware;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.util.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.PropertyNamingStrategy;
 
 /**
  * Single place where exceptions become HTTP responses, in RFC 9457 {@code problem+json}.
@@ -66,12 +75,20 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 
 @RestControllerAdvice
-public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
+public class ApiExceptionHandler extends ResponseEntityExceptionHandler implements EnvironmentAware {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     /** Optional: tracing is not auto-configured in every test slice. */
     private final ObjectProvider<Tracer> tracer;
+
+    /**
+     * Java property path to the name a client sent: {@code identity.firstName} to
+     * {@code identity.first_name} under the platform's snake_case. Set from
+     * {@code spring.jackson.property-naming-strategy} once the bean has its environment; until then,
+     * and without a strategy, paths are left as they are.
+     */
+    private UnaryOperator<String> fieldNames = UnaryOperator.identity();
 
     public ApiExceptionHandler(ObjectProvider<Tracer> tracer) {
         this.tracer = tracer;
@@ -150,7 +167,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setProperty(
                 "errors",
                 ex.getBindingResult().getFieldErrors().stream()
-                        .map(error -> new FieldError(error.getField(), error.getDefaultMessage()))
+                        .map(error -> new FieldError(fieldNames.apply(error.getField()), error.getDefaultMessage()))
                         .sorted(Comparator.comparing(FieldError::field))
                         .toList());
         return ResponseEntity.status(problem.getStatus()).headers(headers).body(problem);
@@ -159,6 +176,44 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /** The one way to build a body. See the class Javadoc. */
     protected ProblemDetail problem(ErrorType errorType, String detail, WebRequest request) {
         return ProblemDetails.create(errorType, detail, request, tracer);
+    }
+
+    /**
+     * Reads the wire format's naming strategy, so an {@code errors[].field} names the field as the
+     * client sent it ({@code external_ref}), not as Java spells it ({@code externalRef}). Through
+     * {@link EnvironmentAware} rather than the constructor, so a service's own subclass gets it too.
+     */
+    @Override
+    public void setEnvironment(Environment environment) {
+        String name = environment.getProperty("spring.jackson.property-naming-strategy");
+        if (!StringUtils.hasText(name)) {
+            return;
+        }
+        PropertyNamingStrategy strategy;
+        try {
+            strategy = (PropertyNamingStrategy) PropertyNamingStrategies.class
+                    .getField(name.strip().toUpperCase(Locale.ROOT))
+                    .get(null);
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            log.warn("spring.jackson.property-naming-strategy={} is not a PropertyNamingStrategies constant; "
+                    + "validation errors name fields as Java does", name);
+            return;
+        }
+        fieldNames = path -> translatePath(path, strategy);
+    }
+
+    private static final Pattern SEGMENT = Pattern.compile("([^.\\[]+)((?:\\[[^\\]]*\\])*)");
+
+    /** Each segment of {@code roles[0].firstName}, keeping the indices: {@code roles[0].first_name}. */
+    static String translatePath(String path, PropertyNamingStrategy strategy) {
+        Matcher segment = SEGMENT.matcher(path);
+        StringBuilder out = new StringBuilder();
+        while (segment.find()) {
+            segment.appendReplacement(out, Matcher.quoteReplacement(
+                    strategy.nameForField(null, null, segment.group(1)) + segment.group(2)));
+        }
+        segment.appendTail(out);
+        return out.toString();
     }
 
     /** Field-level validation failure, serialised into the problem's {@code errors} array. */

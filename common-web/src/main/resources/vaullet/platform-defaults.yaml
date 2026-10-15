@@ -89,6 +89,10 @@ logging:
 springdoc:
   api-docs:
     path: /v3/api-docs
+  # What the services actually speak, instead of springdoc's */*. Errors are described as
+  # application/problem+json by OpenApiResponses.
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
